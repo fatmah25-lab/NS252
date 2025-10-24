@@ -1,0 +1,215 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌿 نظام نَسمة الذكي</title>
+<style>
+  body {
+    font-family: 'Cairo', sans-serif;
+    background: linear-gradient(135deg, #e3f2fd, #ffffff);
+    text-align: center;
+    color: #333;
+    margin: 0;
+    padding: 0;
+  }
+  h1 {
+    color: #0077b6;
+    margin: 20px 0 5px;
+  }
+  h3 {
+    color: #555;
+    margin-bottom: 25px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 15px;
+    justify-items: center;
+    margin: 0 auto;
+    max-width: 900px;
+  }
+  .card {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    padding: 20px;
+    width: 230px;
+  }
+  .value {
+    font-size: 2em;
+    color: #0077b6;
+    margin-top: 10px;
+  }
+  button {
+    padding: 10px 20px;
+    margin: 6px;
+    border: none;
+    border-radius: 10px;
+    background: #00b4d8;
+    color: white;
+    font-size: 1em;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+  button:hover { background: #0077b6; }
+  .footer {
+    margin-top: 25px;
+    color: #555;
+    font-size: 0.9em;
+  }
+  #sound-bar {
+    width: 80%;
+    height: 20px;
+    background: #eee;
+    border-radius: 10px;
+    margin: 10px auto;
+    overflow: hidden;
+  }
+  #sound-level {
+    height: 100%;
+    background: linear-gradient(90deg, #00b4d8, #0077b6);
+    width: 0%;
+    transition: width 0.3s;
+  }
+  .fan-active {
+    color: #009900;
+    font-weight: bold;
+  }
+  .fan-off {
+    color: #888;
+  }
+  /* 🔸 تأثير الرائحة النشطة */
+  #active-scent {
+    margin-top: 20px;
+    font-size: 1.5em;
+    color: #0077b6;
+    font-weight: bold;
+    display: none;
+    animation: pulse 1.2s infinite;
+  }
+  @keyframes pulse {
+    0% { opacity: 0.5; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.1); }
+    100% { opacity: 0.5; transform: scale(1); }
+  }
+</style>
+</head>
+<body>
+
+<h1>🌿 نظام نَسمة — بوابة الضيافة الذكية</h1>
+<h3>فريق آفاق السياحة</h3>
+
+<!-- 🌸 حالة الرائحة النشطة -->
+<div id="active-scent">❁ لا توجد رائحة فعالة</div>
+
+<div class="grid">
+  <div class="card">
+    <h3>درجة الحرارة</h3>
+    <div id="temp" class="value">-- °C</div>
+  </div>
+
+  <div class="card">
+    <h3>الرطوبة</h3>
+    <div id="hum" class="value">-- %</div>
+  </div>
+
+  <div class="card">
+    <h3>جودة الهواء</h3>
+    <div id="air" class="value">--</div>
+  </div>
+
+  <div class="card">
+    <h3>مستوى الصوت</h3>
+    <div id="sound" class="value">--</div>
+    <div id="sound-bar"><div id="sound-level"></div></div>
+  </div>
+
+  <div class="card">
+    <h3>المروحة</h3>
+    <div id="fanStatus" class="value fan-off">❌ متوقفة</div>
+  </div>
+</div>
+
+<h2>التحكم في الروائح</h2>
+<button onclick="activateScent('coffee', '☕ قهوة')">☕ قهوة</button>
+<button onclick="activateScent('oud', '🌿 عود')">🌿 عود</button>
+<button onclick="activateScent('musk', '🌸 مسك')">🌸 مسك</button>
+<button onclick="stopAll()">❌ إيقاف الكل</button>
+
+<div class="footer">
+  صنع بإبداع 💡 من فريق <b>آفاق السياحة</b> — ظفار 🌴
+</div>
+
+<script>
+  // 🟢 عدّل هذا العنوان إلى IP الحقيقي للـ ESP32
+  const esp32_ip = "http://192.168.1.105"; // ← غيّره حسب العنوان الظاهر في السيريال
+
+  let currentScent = "";
+
+  async function updateSensors() {
+    try {
+      const res = await fetch(`${esp32_ip}/sensors`);
+      const data = await res.json();
+
+      document.getElementById("temp").innerText = data.temp + " °C";
+      document.getElementById("hum").innerText = data.hum + " %";
+      document.getElementById("air").innerText = data.air;
+      document.getElementById("sound").innerText = data.sound;
+
+      // شريط مستوى الصوت
+      const barWidth = Math.min(data.sound / 40, 100);
+      document.getElementById("sound-level").style.width = barWidth + "%";
+
+      // حالة المروحة حسب جودة الهواء
+      const fan = document.getElementById("fanStatus");
+      if (data.air > 400) {
+        fan.innerText = "🌀 تعمل الآن";
+        fan.className = "value fan-active";
+      } else {
+        fan.innerText = "❌ متوقفة";
+        fan.className = "value fan-off";
+      }
+
+    } catch (e) {
+      console.log("⚠️ فشل الاتصال بـ ESP32:", e);
+    }
+  }
+
+  function activateScent(device, label) {
+    currentScent = label;
+    sendCommand(device, 1);
+    updateScentLabel(label);
+  }
+
+  function stopAll() {
+    sendCommand("coffee", 0);
+    sendCommand("oud", 0);
+    sendCommand("musk", 0);
+    updateScentLabel("");
+  }
+
+  function updateScentLabel(label) {
+    const scentDiv = document.getElementById("active-scent");
+    if (label) {
+      scentDiv.innerText = `🌸 الرائحة النشطة الآن: ${label}`;
+      scentDiv.style.display = "block";
+    } else {
+      scentDiv.innerText = "❁ لا توجد رائحة فعالة";
+      scentDiv.style.display = "block";
+    }
+  }
+
+  function sendCommand(device, state) {
+    fetch(`${esp32_ip}/${device}?state=${state}`)
+      .then(() => console.log(`تم إرسال أمر ${device} = ${state}`))
+      .catch(() => alert("خطأ في الاتصال بالجهاز!"));
+  }
+
+  setInterval(updateSensors, 1000);
+  updateSensors();
+</script>
+
+</body>
+</html>
